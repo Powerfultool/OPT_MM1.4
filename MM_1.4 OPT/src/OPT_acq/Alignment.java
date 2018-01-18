@@ -55,7 +55,8 @@ public class Alignment {
         // Think the getInstance means we manipulate the original, not a copy?
         gui_ = MMStudio.getInstance();
         core_ = gui_.getCore();
-        frame_= OPT_frame.getInstance();
+        //frame_= OPT_frame.getInstance();
+        frame_= parent;
         alignimg = new ImagePlus();
         alignacqname = "Alignment Image";
         CI = null;
@@ -70,11 +71,12 @@ public class Alignment {
     private void SetupStores(){
         int width = (int) core_.getImageWidth();
         int height = (int) core_.getImageHeight();
-        improc_R = new ByteProcessor(width,height);
+        //MAY WANT TO ADD BITDEPTH CHECKS HERE!!!
+        improc_R = new ShortProcessor(width,height);
         improc_R.setColor(Color.red);
-        improc_G = new ByteProcessor(width,height);
+        improc_G = new ShortProcessor(width,height);
         improc_G.setColor(Color.green);
-        improc_B = new ByteProcessor(width,height);
+        improc_B = new ShortProcessor(width,height);
         improc_B.setColor(Color.blue);
 
         imstack = new ImageStack(width,height,3);
@@ -97,14 +99,23 @@ public class Alignment {
         try{
             if (CI == null){
                 SetupStores();
+                core_.snapImage();
+                improc_R.setPixels(core_.getImage());
+                improc_G = improc_R.duplicate();
+                improc_G.multiply(0);
             }
-            
+           
             //Red for zero degrees
             core_.snapImage();
             if(target_channel==0){
                 improc_R.setPixels(core_.getImage());
             } else {
                 improc_G.setPixels(core_.getImage());
+                if(frame_.get_hvalign()==true){
+                    improc_G.flipHorizontal();
+                } else {
+                    improc_G.flipVertical();
+                }                
             }
             //Green for 180 degrees
             //core_.snapImage();
@@ -114,7 +125,6 @@ public class Alignment {
             //improc_B.multiply(0.0);
 
             imstack.setProcessor(improc_R, 1);
-            improc_G.flipHorizontal();
             imstack.setProcessor(improc_G, 2);           
             //imstack.setProcessor(improc_B, 3);               
            

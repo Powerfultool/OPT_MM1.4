@@ -24,6 +24,7 @@ import mmcorej.CMMCore;
 import org.micromanager.MMStudio;
 import org.micromanager.api.ScriptInterface;
 import org.micromanager.utils.MMScriptException;
+import java.util.*;
 
 /**
  *
@@ -33,11 +34,13 @@ public class Rotation_control extends javax.swing.JPanel {
     
     private OPT_frame parent_;
     private boolean align_mode = false;
+    private boolean HV_align = false;
     //private CMMCore core_;
     //private MMStudio gui_;  // Might be useful to put in at some point? ### WAS DISABLED
     //private ScriptInterface si_;    
     Object img;
     int stop = 0;
+    private int usteps_per_rev = 0;
 
     /**
      * Creates new form Rotation_control
@@ -46,24 +49,46 @@ public class Rotation_control extends javax.swing.JPanel {
         initComponents();
     }
     
+    public void set_steprange(int usteps_in_rev){
+        usteps_per_rev = usteps_in_rev;
+        update_angles();
+    }
+    
+    public int get_steprange(){
+        return usteps_per_rev;
+    }    
+    
     public void setParent(Object parent_frame){
         parent_ = (OPT_frame) parent_frame;
     }
     
-    public void set_angle(double angletoset){
-        parent_.set_angle(angletoset);
+    public void set_angle(int angletoset){
+        try {
+            parent_.set_angle(angletoset);
+        } catch (Exception ex) {
+            Logger.getLogger(Rotation_control.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
     
-    public void update_angles(String[] angles){
+    public void update_angles(){
+        ArrayList<String> angles = new ArrayList<String>();
+        for(int i = 1; i<=usteps_per_rev; i++){
+            if(usteps_per_rev%i==0){
+                String tmp = String.valueOf(i);
+                angles.add(tmp);
+            }
+        }
         Num_angles.removeAllItems();
         try {
-            for(int k=0;k<(angles.length-1);k++){
+            for(int k=0;k<(angles.size()-1);k++){
                 //System.out.println(str);
-                Num_angles.addItem(angles[k]);
+                Num_angles.addItem(angles.get(k));
             }
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }        
+        Angle_control.setMaximum(usteps_per_rev);
+        Rot_label.setText("Rotation control [microsteps] - 0 to "+usteps_per_rev);
     }
     
     private void run_alignment(){
@@ -75,11 +100,24 @@ public class Rotation_control extends javax.swing.JPanel {
             Logger.getLogger(Rotation_control.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-        
+
+    public boolean get_HV_align(){
+        return HV_align;
+    }        
+    
+    public void set_HV_align(boolean hv_tf){
+        HV_align = hv_tf;
+    }        
+    
     public boolean align_status(){
         return align_mode;
     }
-
+    
+    public void set_align_status(boolean running_tf){
+        align_mode = running_tf;
+        this.Align_mode.setSelected(running_tf);
+    }
+    
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -97,6 +135,7 @@ public class Rotation_control extends javax.swing.JPanel {
         Num_angles = new javax.swing.JComboBox<>();
         Num_angles_label = new javax.swing.JLabel();
         Angle_num = new javax.swing.JTextField();
+        Align_HV = new javax.swing.JCheckBox();
 
         jLabel1.setText("jLabel1");
 
@@ -110,7 +149,7 @@ public class Rotation_control extends javax.swing.JPanel {
             }
         });
 
-        Rot_label.setText("Rotation control [degrees]");
+        Rot_label.setText("Rotation control [microsteps]");
 
         Align_mode.setText("Alignment mode");
         Align_mode.setToolTipText("Switches alignment mode on/off");
@@ -130,10 +169,24 @@ public class Rotation_control extends javax.swing.JPanel {
 
         Num_angles_label.setText("# angles in acquisition");
 
+        Angle_num.setText("0");
         Angle_num.setToolTipText("Rotation angle in degrees");
 
         org.jdesktop.beansbinding.Binding binding = org.jdesktop.beansbinding.Bindings.createAutoBinding(org.jdesktop.beansbinding.AutoBinding.UpdateStrategy.READ_WRITE, Angle_control, org.jdesktop.beansbinding.ELProperty.create("${value}"), Angle_num, org.jdesktop.beansbinding.BeanProperty.create("text"));
         bindingGroup.addBinding(binding);
+
+        Angle_num.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                Angle_numActionPerformed(evt);
+            }
+        });
+
+        Align_HV.setText("H/V");
+        Align_HV.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                Align_HVActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
@@ -147,6 +200,8 @@ public class Rotation_control extends javax.swing.JPanel {
                         .addComponent(Rot_label)
                         .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                             .addComponent(Align_mode)
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                            .addComponent(Align_HV)
                             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(Num_angles, javax.swing.GroupLayout.PREFERRED_SIZE, 142, javax.swing.GroupLayout.PREFERRED_SIZE))
                         .addGroup(layout.createSequentialGroup()
@@ -169,7 +224,9 @@ public class Rotation_control extends javax.swing.JPanel {
                 .addGap(3, 3, 3)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(Num_angles, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(Align_mode))
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(Align_mode)
+                        .addComponent(Align_HV)))
                 .addContainerGap(186, Short.MAX_VALUE))
         );
 
@@ -198,12 +255,23 @@ public class Rotation_control extends javax.swing.JPanel {
         // TODO add your handling code here:
         //If it ISN'T being adjusted...
         if (!Angle_control.getValueIsAdjusting()){
-            System.out.println(Angle_control.getValue());
+            //System.out.println(Angle_control.getValue());
+            set_angle(Angle_control.getValue());
         }
     }//GEN-LAST:event_Angle_controlStateChanged
 
+    private void Align_HVActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_Align_HVActionPerformed
+        // TODO add your handling code here:
+        HV_align = Align_HV.isSelected();
+    }//GEN-LAST:event_Align_HVActionPerformed
+
+    private void Angle_numActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_Angle_numActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_Angle_numActionPerformed
+
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JCheckBox Align_HV;
     private javax.swing.JToggleButton Align_mode;
     private javax.swing.JSlider Angle_control;
     private javax.swing.JTextField Angle_num;

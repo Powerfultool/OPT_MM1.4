@@ -51,6 +51,7 @@ public class OPT_frame extends javax.swing.JFrame {
     public MMStudio gui_;  // Might be useful to put in at some point? ### WAS DISABLED
     public ScriptInterface si_;
     static OPT_frame frame_;    
+    String Rotstage = "Rotation_Stage";
     
     public Thread Alignment_thread;
     private Alignment Alignment_;
@@ -71,8 +72,9 @@ public class OPT_frame extends javax.swing.JFrame {
     int height_;
     int imgDepth_;
     Object img;
-    
-
+   
+    int startpos = 0;    
+    int usteps_per_rev = 2000;
     
 //    ImagePlus alignraw = null;    
 //    ImageStack ar_s = null;
@@ -89,10 +91,9 @@ public class OPT_frame extends javax.swing.JFrame {
         // Leaking this in constructor may lead to trouble in multithreaded situations?
 
         frame_ = this;        
-        rotation_control3.setParent(this);       
+        rotation_control3.setParent(this);  
+        rotation_control3.set_steprange(usteps_per_rev);
         Alignment_ = new Alignment(this);
-
-        calc_angles();
         
         gui_ = (MMStudio) si;
         gui_.registerForEvents(this);               
@@ -114,26 +115,27 @@ public class OPT_frame extends javax.swing.JFrame {
         }
     }
     
-    public void set_angle(double angletoset){
-        //core_.getDeviceName(ACQNAME)
-        //Get stage
-        //Set angle
-        //Done!
+    public boolean get_hvalign(){
+        return rotation_control3.get_HV_align();
     }
     
-    public void calc_angles(){
-        //String[] test = {"asdf","asdgfasd","fghgfh","zvzxcvzxc","uiouioui","fghfghfg"};
-        //core_.get
-        //rotation_control3.update_angles(test);
-    }    
+    public void set_angle(int angletoset) throws Exception{
+        core_.setPosition(Rotstage, angletoset);
+        core_.waitForDevice(Rotstage);
+    } 
     
     public void do_alignment() throws MMScriptException, InterruptedException{ 
         Alignment_thread = new Thread(new Alignment_thread(this));
         Alignment_thread.start();
     }
     
-    public void alignment_procedure(){
-        
+    public void alignment_procedure() throws Exception{
+        startpos = (int) core_.getPosition(Rotstage);
+//        core_.getAllowedPropertyValues(Rotstage, ACQNAME)
+        System.out.println("Start position: "+startpos);
+        if(true == false){
+            //rotation_control3.set_HV_align(hv_);
+        }
         try{
             if (gui_.isLiveModeOn()){
                 gui_.enableLiveMode(false);
@@ -148,13 +150,25 @@ public class OPT_frame extends javax.swing.JFrame {
             try {
                 retimg = Alignment_.Snapandshow(retimg,framecount%2);
                 //DO ROTATION HERE...
-                Thread.sleep(250);
+                if(framecount%2 == 0){
+                    rotation_control3.set_angle(startpos);
+                } else {
+                    rotation_control3.set_angle(startpos+usteps_per_rev/2);
+                }
+                core_.waitForDevice(Rotstage);
             } catch (InterruptedException ex) {
                 Logger.getLogger(OPT_frame.class.getName()).log(Level.SEVERE, null, ex);
             }
             framecount++;
+            if (!Alignment_.CI.getWindow().isVisible()){
+                rotation_control3.set_align_status(false);
+            }
         }
+        //Set back to previous position
+        core_.setPosition(Rotstage, startpos);                    
+        core_.waitForDevice(Rotstage);
         Alignment_.end_alignment();
+        //core_.getProperty(Rotstage, "Microstep Resolution");
     }
 
     
